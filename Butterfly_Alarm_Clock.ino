@@ -18,9 +18,9 @@ void setup() {
   pinMode(A3, INPUT_PULLUP);
 
   Serial.println("Enter \"?\" to print help message");
-  R = 255;
-  B = 100;
-  G = 100;
+  R = 0;
+  B = 0;
+  G = 0;
 }
 
 void loop() {
@@ -55,6 +55,12 @@ void menuSelect(){
       break;
     case '3': 
       userSetSleepAlarm();
+      break;
+    case '4': 
+      sleepAlarm();
+      break;
+    case '5': 
+      wakeAlarm();
       break;
     default:
       Serial.print(menuSelection);
@@ -120,6 +126,11 @@ void setWingColor(String color){
       G = 0;
       B = 255;
   }
+  else if( color == "black"){
+      R = 0;
+      G = 0;
+      B = 0;
+  }
   else { //"purple"
       R = 100;
       G = 0;
@@ -134,6 +145,8 @@ void printHelpMessage(){
   Serial.println("Enter \"1\" to set time.");
   Serial.println("Enter \"2\" to set wake alarm");
   Serial.println("Enter \"3\" to set sleep alarm");
+  Serial.println("Enter \"4\" to set mode to sleep");
+  Serial.println("Enter \"5\" to set mode to awake");
   Serial.println("");
   Serial.println("!!! turn off all line endings !!!");
 }
@@ -201,10 +214,10 @@ void userSetSleepAlarm(){
 }
 
 void wakeAlarm(){
-  setWingColor("pink");
+  setWingColor("teal");
 }
 
 void sleepAlarm(){
-  setWingColor("teal");
+  setWingColor("black");
 }
 
