@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include <SPI.h>
 #include <SparkFunDS3234RTC.h>
 
@@ -21,6 +22,8 @@ void setup() {
   R = 0;
   B = 0;
   G = 0;
+
+  setStartupState();
 }
 
 void loop() {
@@ -85,8 +88,8 @@ void updateBrightness(){
   analogWrite(GREENPIN, green);
 
 #ifdef DEBUG
-  Serial.print("Brightness: ");
-  Serial.println(brightness);
+  //Serial.print("Brightness: ");
+  //Serial.println(brightness);
 #endif
 }
 
@@ -184,40 +187,88 @@ void userSetTime(){
 }
 
 void userSetWakeAlarm(){
+  Serial.print("Current alarm time: ");
+  Serial.print(EEPROM.read(1));
+  Serial.print(":");
+  Serial.println(EEPROM.read(0));
   Serial.println("Enter wake hour (24 hour format):");
   while(!Serial.available()){
     delay(10);
   }
   int newHour = Serial.parseInt();
-  Serial.println("Enter current minute:");
+  Serial.println("Enter wake minute:");
   while(!Serial.available()){
     delay(10);
   }
   int newMinute = Serial.parseInt();
+  EEPROM.update(0, newMinute);
+  EEPROM.update(1, newHour);
   rtc.setAlarm1(0, newMinute, newHour);
   Serial.println("Wake alarm set");
 }
 
 void userSetSleepAlarm(){
+  Serial.print("Current alarm time: ");
+  Serial.print(EEPROM.read(3));
+  Serial.print(":");
+  Serial.println(EEPROM.read(2));
   Serial.println("Enter sleep hour (24 hour format):");
   while(!Serial.available()){
     delay(10);
   }
   int newHour = Serial.parseInt();
-  Serial.println("Enter current minute:");
+  Serial.println("Enter sleep minute:");
   while(!Serial.available()){
     delay(10);
   }
   int newMinute = Serial.parseInt();
+  EEPROM.update(2, newMinute);
+  EEPROM.update(3, newHour);
   rtc.setAlarm2(newMinute, newHour);
   Serial.println("Sleep alarm set");
 }
 
 void wakeAlarm(){
   setWingColor("teal");
+  int wakeMinute = EEPROM.read(0);
+  int wakeHour = EEPROM.read(1);
+  rtc.update();
+  rtc.setAlarm1(0, wakeMinute, wakeHour);
+  Serial.println("Wake");
 }
 
 void sleepAlarm(){
   setWingColor("black");
+  int sleepMinute = EEPROM.read(2);
+  int sleepHour = EEPROM.read(3);
+  rtc.update();
+  rtc.setAlarm2(sleepMinute, sleepHour);
+  Serial.println("Sleep");
+}
+
+void setStartupState(){
+  rtc.update();
+  int wakeMinute = EEPROM.read(0);
+  int wakeHour = EEPROM.read(1);
+  int sleepMinute = EEPROM.read(2);
+  int sleepHour = EEPROM.read(3);
+  int currentMinute = rtc.minute();
+  int currentHour = rtc.hour();
+
+#ifdef DEBUG
+  Serial.println(currentMinute);
+  Serial.println(currentHour);
+#endif
+  Serial.print("Startup state: ");
+  
+  if(wakeHour < currentHour && sleepHour > currentHour){
+    wakeAlarm();
+  }
+  else if(wakeHour == currentHour && wakeMinute >= currentMinute){
+    wakeAlarm();
+  }
+  else{
+    sleepAlarm();
+  }
 }
 
