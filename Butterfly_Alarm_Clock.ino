@@ -16,7 +16,7 @@ void setup() {
   pinMode(3, OUTPUT);
   pinMode(6, OUTPUT);
   pinMode(9, OUTPUT);
-  pinMode(A3, INPUT_PULLUP);
+  pinMode(A3, INPUT);
 
   Serial.println("Enter \"?\" to print help message");
   R = 0;
@@ -75,7 +75,19 @@ void menuSelect(){
 void updateBrightness(){
   //read brightness from room
   int reading = analogRead(A3);
-  brightness = map(reading, 690, 1000, 1, 255);
+
+  // fix brightness curve
+  if(reading < 200){
+    reading = reading / 4;
+  }
+  else if(reading < 400){
+    reading = reading / 3;
+  }
+  else if(reading < 600){
+    reading = reading / 2;
+  }
+  
+  brightness = map(reading, 0, 1000, 1, 255);
   
   //translate values to brightness
   int red = map(R, 0, 255, 0, brightness);
@@ -88,8 +100,17 @@ void updateBrightness(){
   analogWrite(GREENPIN, green);
 
 #ifdef DEBUG
-  //Serial.print("Brightness: ");
-  //Serial.println(brightness);
+  Serial.print("Reading: ");
+  Serial.println(reading);
+  Serial.print("Brightness: ");
+  Serial.println(brightness);
+  Serial.print(" Red: ");
+  Serial.println(red);
+  Serial.print(" Blue: ");
+  Serial.println(blue);
+  Serial.print(" Green: ");
+  Serial.println(green);
+  delay(200);
 #endif
 }
 
@@ -255,16 +276,12 @@ void setStartupState(){
   int currentMinute = rtc.minute();
   int currentHour = rtc.hour();
 
-#ifdef DEBUG
-  Serial.println(currentMinute);
-  Serial.println(currentHour);
-#endif
   Serial.print("Startup state: ");
   
   if(wakeHour < currentHour && sleepHour > currentHour){
     wakeAlarm();
   }
-  else if(wakeHour == currentHour && wakeMinute >= currentMinute){
+  else if(wakeHour == currentHour && wakeMinute <= currentMinute){
     wakeAlarm();
   }
   else{
