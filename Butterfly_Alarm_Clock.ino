@@ -1,14 +1,16 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <SparkFunDS3234RTC.h>
+#include <FastLED.h>
 
 #define REDPIN 6
 #define BLUEPIN 3
 #define GREENPIN 9
+#define SATURATION 140
+#define TWINKLE 8
 //#define DEBUG
 
-
-int R,G,B, brightness;
+bool colorOn;
 
 void setup() {
   Serial.begin(9600);
@@ -19,15 +21,11 @@ void setup() {
   pinMode(A3, INPUT);
 
   Serial.println("Enter \"?\" to print help message");
-  R = 0;
-  B = 0;
-  G = 0;
-
   setStartupState();
 }
 
 void loop() {
-  updateBrightness();
+  setWingColor();
   if (Serial.available()){
     menuSelect();
   }
@@ -72,7 +70,7 @@ void menuSelect(){
   }
 }
 
-void updateBrightness(){
+int getBrightness(){
   //read brightness from room
   int reading = analogRead(A3);
 
@@ -87,80 +85,42 @@ void updateBrightness(){
     reading = reading / 2;
   }
   
-  brightness = map(reading, 0, 1000, 1, 255);
-  
-  //translate values to brightness
-  int red = map(R, 0, 255, 0, brightness);
-  int green = map(G, 0, 255, 0, brightness);
-  int blue = map(B, 0, 255, 0, brightness);
-
-  //apply brightness to LEDs
-  analogWrite(REDPIN, red);
-  analogWrite(BLUEPIN, blue);
-  analogWrite(GREENPIN, green);
+  uint8_t brightness = map(reading, 0, 1024, 1, 255);
 
 #ifdef DEBUG
   Serial.print("Reading: ");
   Serial.println(reading);
   Serial.print("Brightness: ");
   Serial.println(brightness);
-  Serial.print(" Red: ");
-  Serial.println(red);
-  Serial.print(" Blue: ");
-  Serial.println(blue);
-  Serial.print(" Green: ");
-  Serial.println(green);
   delay(200);
 #endif
+  
+  return brightness;
 }
 
-void setWingColor(String color){
-  if( color == "red"){
-      R = 255;
-      G = 0;
-      B = 0;
-  }
-  else if( color == "pink"){
-      R = 255;
-      G = 100;
-      B = 100;
-  }
-  else if( color == "orange"){
-      R = 255;
-      G = 65;
-      B = 0;
-  }
-  else if( color == "yellow"){
-      R = 255;
-      G = 125;
-      B = 0;
-  }
-  else if( color == "green"){
-      R = 0;
-      G = 255;
-      B = 0;
-  }
-  else if( color == "teal"){
-      R = 0;
-      G = 100;
-      B = 255;
-  }
-  else if( color == "blue"){
-      R = 0;
-      G = 0;
-      B = 255;
-  }
-  else if( color == "black"){
-      R = 0;
-      G = 0;
-      B = 0;
-  }
-  else { //"purple"
-      R = 100;
-      G = 0;
-      B = 255;
-  }
+void setWingColor(){
   
+  uint8_t hue, saturation, minute;
+  
+  rtc.update();
+  minute = rtc.minute();
+
+  hue = map(minute, 0, 59, 0, 255);
+  saturation = SATURATION + randomTwinkle();
+  // Use FastLED automatic HSV->RGB conversion
+  showAnalogRGB( CHSV( hue, saturation, getBrightness()) );
+}
+
+void showAnalogRGB( const CRGB& rgb)
+{
+  analogWrite(REDPIN,   rgb.r );
+  analogWrite(GREENPIN, rgb.g );
+  analogWrite(BLUEPIN,  rgb.b );
+}
+
+int randomTwinkle(){
+  int offset = random(-TWINKLE, TWINKLE);
+  return offset;
 }
 
 void printHelpMessage(){
@@ -250,7 +210,7 @@ void userSetSleepAlarm(){
 }
 
 void wakeAlarm(){
-  setWingColor("teal");
+  colorOn = true;
   int wakeMinute = EEPROM.read(0);
   int wakeHour = EEPROM.read(1);
   rtc.update();
@@ -259,7 +219,7 @@ void wakeAlarm(){
 }
 
 void sleepAlarm(){
-  setWingColor("black");
+  colorOn = false;
   int sleepMinute = EEPROM.read(2);
   int sleepHour = EEPROM.read(3);
   rtc.update();
