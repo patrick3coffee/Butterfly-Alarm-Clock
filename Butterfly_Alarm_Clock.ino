@@ -7,7 +7,7 @@
 #define BLUEPIN 3
 #define GREENPIN 9
 #define SATURATION 140
-#define TWINKLE 8
+#define TWINKLE 6
 //#define DEBUG
 
 bool colorOn;
@@ -15,9 +15,9 @@ bool colorOn;
 void setup() {
   Serial.begin(9600);
   rtc.begin(10);
-  pinMode(3, OUTPUT);
-  pinMode(6, OUTPUT);
-  pinMode(9, OUTPUT);
+  pinMode(BLUEPIN, OUTPUT);
+  pinMode(REDPIN, OUTPUT);
+  pinMode(GREENPIN, OUTPUT);
   pinMode(A3, INPUT);
 
   Serial.println("Enter \"?\" to print help message");
@@ -25,67 +25,69 @@ void setup() {
 }
 
 void loop() {
-  setWingColor();
-  if (Serial.available()){
+  if (colorOn) {
+    setWingColor();
+  }
+  if (Serial.available()) {
     menuSelect();
   }
 
-  if (rtc.alarm1()){
+  if (rtc.alarm1()) {
     wakeAlarm();
   }
-  else if(rtc.alarm2()){
+  else if (rtc.alarm2()) {
     sleepAlarm();
   }
-  else{
+  else {
     delay(50);
   }
-  
+
 }
 
-void menuSelect(){
+void menuSelect() {
   byte menuSelection = Serial.read();
-  switch (menuSelection){
+  switch (menuSelection) {
     case '?':
       printHelpMessage();
       break;
     case '1':
       userSetTime();
       break;
-    case '2': 
+    case '2':
       userSetWakeAlarm();
       break;
-    case '3': 
+    case '3':
       userSetSleepAlarm();
       break;
-    case '4': 
+    case '4':
       sleepAlarm();
       break;
-    case '5': 
+    case '5':
       wakeAlarm();
       break;
     default:
       Serial.print(menuSelection);
       Serial.println(" is an unknown command");
-    break;
+      break;
   }
 }
 
-int getBrightness(){
+int getBrightness() {
   //read brightness from room
   int reading = analogRead(A3);
 
   // fix brightness curve
-  if(reading < 200){
+  if (reading < 200) {
     reading = reading / 4;
   }
-  else if(reading < 400){
+  else if (reading < 400) {
     reading = reading / 3;
   }
-  else if(reading < 600){
+  else if (reading < 600) {
     reading = reading / 2;
   }
-  
-  uint8_t brightness = map(reading, 0, 1024, 1, 255);
+
+  uint8_t brightness = map(reading, 0, 1024, 5, 255);
 
 #ifdef DEBUG
   Serial.print("Reading: ");
@@ -94,18 +96,18 @@ int getBrightness(){
   Serial.println(brightness);
   delay(200);
 #endif
-  
+
   return brightness;
 }
 
-void setWingColor(){
-  
+void setWingColor() {
+
   uint8_t hue, saturation, minute;
-  
+
   rtc.update();
   minute = rtc.minute();
 
-  hue = map(minute, 0, 59, 0, 255);
+  hue = map(minute, 0, 59, 1, 255);
   saturation = SATURATION + randomTwinkle();
   // Use FastLED automatic HSV->RGB conversion
   showAnalogRGB( CHSV( hue, saturation, getBrightness()) );
@@ -118,12 +120,12 @@ void showAnalogRGB( const CRGB& rgb)
   analogWrite(BLUEPIN,  rgb.b );
 }
 
-int randomTwinkle(){
+int randomTwinkle() {
   int offset = random(-TWINKLE, TWINKLE);
   return offset;
 }
 
-void printHelpMessage(){
+void printHelpMessage() {
   printTime();
   Serial.println("");
   Serial.println("Enter \"1\" to set time.");
@@ -135,7 +137,7 @@ void printHelpMessage(){
   Serial.println("!!! turn off all line endings !!!");
 }
 
-void printTime(){
+void printTime() {
   //get current time
   rtc.update();
   int s = rtc.second();
@@ -152,33 +154,33 @@ void printTime(){
   Serial.println(s);
 }
 
-void userSetTime(){
+void userSetTime() {
   Serial.println("Enter current hour (24 hour format):");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newHour = Serial.parseInt();
   Serial.println("Enter current minute:");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newMinute = Serial.parseInt();
-  rtc.setTime(0, newMinute, newHour, 0,0,0,0);
+  rtc.setTime(0, newMinute, newHour, 0, 0, 0, 0);
   Serial.println("New time set");
 }
 
-void userSetWakeAlarm(){
+void userSetWakeAlarm() {
   Serial.print("Current alarm time: ");
   Serial.print(EEPROM.read(1));
   Serial.print(":");
   Serial.println(EEPROM.read(0));
   Serial.println("Enter wake hour (24 hour format):");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newHour = Serial.parseInt();
   Serial.println("Enter wake minute:");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newMinute = Serial.parseInt();
@@ -188,18 +190,18 @@ void userSetWakeAlarm(){
   Serial.println("Wake alarm set");
 }
 
-void userSetSleepAlarm(){
+void userSetSleepAlarm() {
   Serial.print("Current alarm time: ");
   Serial.print(EEPROM.read(3));
   Serial.print(":");
   Serial.println(EEPROM.read(2));
   Serial.println("Enter sleep hour (24 hour format):");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newHour = Serial.parseInt();
   Serial.println("Enter sleep minute:");
-  while(!Serial.available()){
+  while (!Serial.available()) {
     delay(10);
   }
   int newMinute = Serial.parseInt();
@@ -209,7 +211,7 @@ void userSetSleepAlarm(){
   Serial.println("Sleep alarm set");
 }
 
-void wakeAlarm(){
+void wakeAlarm() {
   colorOn = true;
   int wakeMinute = EEPROM.read(0);
   int wakeHour = EEPROM.read(1);
@@ -218,7 +220,7 @@ void wakeAlarm(){
   Serial.println("Wake");
 }
 
-void sleepAlarm(){
+void sleepAlarm() {
   colorOn = false;
   int sleepMinute = EEPROM.read(2);
   int sleepHour = EEPROM.read(3);
@@ -227,7 +229,7 @@ void sleepAlarm(){
   Serial.println("Sleep");
 }
 
-void setStartupState(){
+void setStartupState() {
   rtc.update();
   int wakeMinute = EEPROM.read(0);
   int wakeHour = EEPROM.read(1);
@@ -237,14 +239,14 @@ void setStartupState(){
   int currentHour = rtc.hour();
 
   Serial.print("Startup state: ");
-  
-  if(wakeHour < currentHour && sleepHour > currentHour){
+
+  if (wakeHour < currentHour && sleepHour > currentHour) {
     wakeAlarm();
   }
-  else if(wakeHour == currentHour && wakeMinute <= currentMinute){
+  else if (wakeHour == currentHour && wakeMinute <= currentMinute) {
     wakeAlarm();
   }
-  else{
+  else {
     sleepAlarm();
   }
 }
