@@ -6,12 +6,12 @@
 #define REDPIN 6
 #define BLUEPIN 3
 #define GREENPIN 9
-#define SATURATION 140
-#define TWINKLEMAX 60
+#define SATURATION 120
+#define TWINKLERANGE 120
 //#define DEBUG
 
 bool colorOn;
-int twinkleOffset = 0;
+int twinkleOffset = TWINKLERANGE / 2;
 
 void setup() {
   Serial.begin(9600);
@@ -109,11 +109,13 @@ void setWingColor() {
 
   uint8_t hue, saturation, brightness, minute;
 
+  randomTwinkle();
+
   rtc.update();
   minute = rtc.minute();
 
   hue = map(minute, 0, 59, 1, 255);
-  saturation = SATURATION + randomTwinkle();
+  saturation = SATURATION + twinkleOffset;
   brightness = getBrightness();
 
 #ifdef DEBUG
@@ -138,15 +140,20 @@ void showAnalogRGB( const CRGB& rgb)
 }
 
 int randomTwinkle() {
-  if (twinkleOffset == TWINKLEMAX ) {
-    twinkleOffset -= 1;
+  if (twinkleOffset == TWINKLERANGE || twinkleOffset >= 250) {
+    twinkleOffset -= 5;
   }
-  else if ( twinkleOffset == TWINKLEMAX * -1) {
-    twinkleOffset += 1;
+  else if ( twinkleOffset <= 5) {
+    twinkleOffset += 5;
   }
   else {
-    int delta = random(-4, 5);
-    twinkleOffset += delta;
+    int delta = random(10);
+    if ( delta > 5 ) {
+      twinkleOffset += delta - 5;
+    }
+    else {
+      twinkleOffset -= delta;
+    }
   }
 #ifdef DEBUG
   Serial.print("Twinkle offset: ");
