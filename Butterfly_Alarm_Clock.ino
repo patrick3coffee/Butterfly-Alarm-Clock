@@ -7,10 +7,11 @@
 #define BLUEPIN 3
 #define GREENPIN 9
 #define SATURATION 140
-#define TWINKLE 6
+#define TWINKLEMAX 60
 //#define DEBUG
 
 bool colorOn;
+int twinkleOffset = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -45,6 +46,9 @@ void loop() {
   else {
     delay(50);
   }
+#ifdef DEBUG
+  delay(200);
+#endif
 
 }
 
@@ -96,9 +100,6 @@ int getBrightness() {
 #ifdef DEBUG
   Serial.print("Reading: ");
   Serial.println(reading);
-  Serial.print("Brightness: ");
-  Serial.println(brightness);
-  delay(200);
 #endif
 
   return brightness;
@@ -106,15 +107,27 @@ int getBrightness() {
 
 void setWingColor() {
 
-  uint8_t hue, saturation, minute;
+  uint8_t hue, saturation, brightness, minute;
 
   rtc.update();
   minute = rtc.minute();
 
   hue = map(minute, 0, 59, 1, 255);
   saturation = SATURATION + randomTwinkle();
+  brightness = getBrightness();
+
+#ifdef DEBUG
+  Serial.print("H: ");
+  Serial.print(hue);
+  Serial.print("   S: ");
+  Serial.print(saturation);
+  Serial.print("   V: ");
+  Serial.println(brightness);
+#endif
+
+
   // Use FastLED automatic HSV->RGB conversion
-  showAnalogRGB( CHSV( hue, saturation, getBrightness()) );
+  showAnalogRGB( CHSV( hue, saturation, brightness) );
 }
 
 void showAnalogRGB( const CRGB& rgb)
@@ -125,8 +138,21 @@ void showAnalogRGB( const CRGB& rgb)
 }
 
 int randomTwinkle() {
-  int offset = random(-TWINKLE, TWINKLE);
-  return offset;
+  if (twinkleOffset == TWINKLEMAX ) {
+    twinkleOffset -= 1;
+  }
+  else if ( twinkleOffset == TWINKLEMAX * -1) {
+    twinkleOffset += 1;
+  }
+  else {
+    int delta = random(-4, 5);
+    twinkleOffset += delta;
+  }
+#ifdef DEBUG
+  Serial.print("Twinkle offset: ");
+  Serial.println(twinkleOffset);
+#endif
+  return twinkleOffset;
 }
 
 void printHelpMessage() {
