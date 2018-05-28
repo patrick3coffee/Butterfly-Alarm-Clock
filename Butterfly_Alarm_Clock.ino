@@ -28,6 +28,10 @@ void loop() {
   if (colorOn) {
     setWingColor();
   }
+  else {
+    showAnalogRGB( CHSV( 0, 0, 0) );
+  }
+
   if (Serial.available()) {
     menuSelect();
   }
