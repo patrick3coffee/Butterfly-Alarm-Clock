@@ -21,7 +21,7 @@ void setup() {
   pinMode(GREENPIN, OUTPUT);
   pinMode(A3, INPUT);
 
-  Serial.println("Enter \"?\" to print help message");
+  printHelpMessage();
   setStartupState();
 }
 
@@ -76,6 +76,7 @@ void menuSelect() {
     default:
       Serial.print(menuSelection);
       Serial.println(" is an unknown command");
+      printHelpMessage();
       break;
   }
 }
@@ -140,7 +141,7 @@ void showAnalogRGB( const CRGB& rgb)
 }
 
 int randomTwinkle() {
-  if (twinkleOffset == TWINKLERANGE || twinkleOffset >= 250) {
+  if (twinkleOffset >= 250) {
     twinkleOffset -= 5;
   }
   else if ( twinkleOffset <= 5) {
@@ -163,7 +164,7 @@ int randomTwinkle() {
 }
 
 void printHelpMessage() {
-  printTime();
+  printCurrentSettings();
   Serial.println("");
   Serial.println("Enter \"1\" to set time.");
   Serial.println("Enter \"2\" to set wake alarm");
@@ -174,7 +175,7 @@ void printHelpMessage() {
   Serial.println("!!! turn off all line endings !!!");
 }
 
-void printTime() {
+void printCurrentTime() {
   //get current time
   rtc.update();
   int s = rtc.second();
@@ -186,9 +187,21 @@ void printTime() {
   Serial.print("Current time is: ");
   Serial.print(h);
   Serial.print(":");
-  Serial.print(m);
+  if (m < 10) {
+    Serial.print("0");
+    Serial.print(m);
+  }
+  else {
+    Serial.print(m);
+  }
   Serial.print(":");
-  Serial.println(s);
+  if (s < 10 ) {
+    Serial.print("0");
+    Serial.println(s);
+  }
+  else {
+    Serial.println(s);
+  }
 }
 
 void userSetTime() {
@@ -206,11 +219,30 @@ void userSetTime() {
   Serial.println("New time set");
 }
 
-void userSetWakeAlarm() {
-  Serial.print("Current alarm time: ");
-  Serial.print(EEPROM.read(1));
+void printAlarmTime(int hourAddress, int minuteAddress) {
+  int alarmMinute = EEPROM.read(minuteAddress);
+  Serial.print(EEPROM.read(hourAddress));
   Serial.print(":");
-  Serial.println(EEPROM.read(0));
+  if (alarmMinute < 10) {
+    Serial.print("0");
+    Serial.println(alarmMinute);
+  }
+  else {
+    Serial.println(alarmMinute);
+  }
+}
+
+void printCurrentSettings() {
+  printCurrentTime();
+  Serial.print("Current wake alarm time ");
+  printAlarmTime(1, 0);
+  Serial.print("Current sleep alarm time: ");
+  printAlarmTime(3, 2);
+}
+
+void userSetWakeAlarm() {
+  Serial.print("Current alarm time ");
+  printAlarmTime(1, 0);
   Serial.println("Enter wake hour (24 hour format):");
   while (!Serial.available()) {
     delay(10);
@@ -224,14 +256,14 @@ void userSetWakeAlarm() {
   EEPROM.update(0, newMinute);
   EEPROM.update(1, newHour);
   rtc.setAlarm1(0, newMinute, newHour);
-  Serial.println("Wake alarm set");
+  Serial.print("Wake alarm set to ");
+  printAlarmTime(1, 0);
+  Serial.println(" ");
 }
 
 void userSetSleepAlarm() {
   Serial.print("Current alarm time: ");
-  Serial.print(EEPROM.read(3));
-  Serial.print(":");
-  Serial.println(EEPROM.read(2));
+  printAlarmTime(3, 2);
   Serial.println("Enter sleep hour (24 hour format):");
   while (!Serial.available()) {
     delay(10);
@@ -245,13 +277,16 @@ void userSetSleepAlarm() {
   EEPROM.update(2, newMinute);
   EEPROM.update(3, newHour);
   rtc.setAlarm2(newMinute, newHour);
-  Serial.println("Sleep alarm set");
+  Serial.print("Sleep alarm set to ");
+  printAlarmTime(3, 2);
+  Serial.println(" ");
 }
 
 void wakeAlarm() {
   colorOn = true;
-  int wakeMinute = EEPROM.read(0);
-  int wakeHour = EEPROM.read(1);
+  int wakeMinuteOfDay = dstOffset(true);
+  int wakeMinute = wakeMinuteOfDay % 60;
+  int wakeHour = wakeMinuteOfDay / 60;
   rtc.update();
   rtc.setAlarm1(0, wakeMinute, wakeHour);
   Serial.println("Wake");
@@ -259,8 +294,11 @@ void wakeAlarm() {
 
 void sleepAlarm() {
   colorOn = false;
-  int sleepMinute = EEPROM.read(2);
-  int sleepHour = EEPROM.read(3);
+
+  int sleepMinuteOfDay = dstOffset(false);
+  int sleepMinute = sleepMinuteOfDay % 60;
+  int sleepHour = sleepMinuteOfDay / 60;
+
   rtc.update();
   rtc.setAlarm2(sleepMinute, sleepHour);
   Serial.println("Sleep");
@@ -268,19 +306,26 @@ void sleepAlarm() {
 
 void setStartupState() {
   rtc.update();
-  int wakeMinute = EEPROM.read(0);
-  int wakeHour = EEPROM.read(1);
-  int sleepMinute = EEPROM.read(2);
-  int sleepHour = EEPROM.read(3);
-  int currentMinute = rtc.minute();
-  int currentHour = rtc.hour();
+  int currentMinuteOfDay = rtc.hour() * 60 + rtc.minute();
+  int wakeMinuteOfDay = dstOffset(true);
+  int sleepMinuteOfDay = dstOffset(false);
+
+#ifdef DEBUG
+  Serial.println("startup numbers: ");
+  Serial.print("currentMinuteOfDay ");
+  Serial.println(currentMinuteOfDay);
+  Serial.print("wakeMinuteOfDay ");
+  Serial.println(wakeMinuteOfDay);
+  Serial.print("sleepMinuteOfDay ");
+  Serial.println(sleepMinuteOfDay);
+#endif
 
   Serial.print("Startup state: ");
 
-  if (wakeHour < currentHour && sleepHour > currentHour) {
-    wakeAlarm();
+  if (currentMinuteOfDay >= sleepMinuteOfDay) {
+    sleepAlarm();
   }
-  else if (wakeHour == currentHour && wakeMinute <= currentMinute) {
+  else if (currentMinuteOfDay >= wakeMinuteOfDay) {
     wakeAlarm();
   }
   else {
@@ -288,3 +333,29 @@ void setStartupState() {
   }
 }
 
+int dstOffset(bool wake) {
+  int memHour, memMin;
+
+  if (wake) {
+    memMin = EEPROM.read(0);
+    memHour = EEPROM.read(1);
+  }
+  else {
+    memMin = EEPROM.read(2);
+    memHour = EEPROM.read(3);
+  }
+
+  int minuteOfDay = (memHour * 60 + memMin);
+
+  if (rtc.month() == 3) {
+    minuteOfDay += (rtc.day() * 2);
+  }
+  else if ( rtc.month() > 3 && rtc.month() < 11) {
+    minuteOfDay += 60;
+  }
+  else if (rtc.month() == 11) {
+    minuteOfDay += (60 - rtc.day() * 2);
+  }
+
+  return minuteOfDay;
+}
